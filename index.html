@@ -1121,7 +1121,9 @@ async function analyze() {
   document.getElementById('btn-spinner').style.display = 'block';
   document.getElementById('btn-text').textContent = 'Анализ...';
   document.getElementById('empty-state').style.display = 'none';
-  document.getElementById('results-area').classList.remove('show');
+  const resultsArea = document.getElementById('results-area');
+  resultsArea.style.display = 'none';
+  resultsArea.innerHTML = '';
   document.getElementById('loading-state').classList.add('show');
   startLoading();
 
@@ -1150,7 +1152,9 @@ async function analyze() {
 function renderResults(data, originalText) {
   const area = document.getElementById('results-area');
   area.innerHTML = '';
-  area.classList.remove('show');
+  area.style.display = 'flex';
+  area.style.flexDirection = 'column';
+  area.style.gap = '16px';
 
   // timestamp
   const now = new Date();
@@ -1270,13 +1274,14 @@ function renderResults(data, originalText) {
     area.appendChild(commentEl);
   }
 
-  area.classList.add('show');
 }
 
 function renderError(msg) {
   const area = document.getElementById('results-area');
   area.innerHTML = `<div class="verdict fail"><div class="verdict-icon">✕</div><div><div class="verdict-label">ОШИБКА СИСТЕМЫ</div><div class="verdict-desc">${escapeHtml(msg)}</div></div></div>`;
-  area.classList.add('show');
+  area.style.display = 'flex';
+  area.style.flexDirection = 'column';
+  area.style.gap = '16px';
 }
 
 function toggleIssue(id) {
