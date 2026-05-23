@@ -1151,129 +1151,108 @@ async function analyze() {
 // ── RENDER RESULTS ────────────────────────────────────────────────────────
 function renderResults(data, originalText) {
   const area = document.getElementById('results-area');
-  area.innerHTML = '';
-  area.style.display = 'flex';
-  area.style.flexDirection = 'column';
-  area.style.gap = '16px';
 
-  // timestamp
-  const now = new Date();
-  document.getElementById('result-timestamp').textContent =
-    now.toLocaleDateString('ru-RU') + ' ' + now.toTimeString().slice(0,5);
-
-  // verdict
   const verdictMap = {
     pass: { cls: 'pass', icon: '✓', label: 'ОДОБРЕНО', desc: 'Материал соответствует стандартам TRT Russian.' },
     warn: { cls: 'warn', icon: '⚠', label: 'ТРЕБУЕТ ПРАВОК', desc: 'Обнаружены ошибки. Необходима корректура перед публикацией.' },
     fail: { cls: 'fail', icon: '✕', label: 'НЕ ОДОБРЕНО', desc: 'Критические нарушения. Материал не может быть опубликован.' }
   };
-
   const v = verdictMap[data.verdict] || verdictMap.warn;
 
-  // helper: create element from html string
-  function el(html) {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    return div.firstElementChild;
-  }
-
-  // verdict
-  area.appendChild(el(`
-    <div class="verdict ${v.cls}">
-      <div class="verdict-icon">${v.icon}</div>
-      <div>
-        <div class="verdict-label">${v.label}</div>
-        <div class="verdict-desc">${v.desc}</div>
-      </div>
-    </div>`));
-
-  // corrected text
-  if (data.correctedText && data.correctedText !== originalText) {
-    const corrBlock = el(`
-      <div class="corrected-text-block">
-        <div class="corrected-header">
-          <span class="panel-title">Исправленный текст</span>
-          <button class="btn-copy">КОПИРОВАТЬ</button>
-        </div>
-        <div class="corrected-content">${escapeHtml(data.correctedText)}</div>
-      </div>`);
-    corrBlock.querySelector('.btn-copy').addEventListener('click', () => {
-      navigator.clipboard.writeText(data.correctedText);
-    });
-    area.appendChild(corrBlock);
-  }
-
-  // issue groups
   const groups = [
-    { key: 'terminology', label: 'Терминология', level: 'critical' },
-    { key: 'turkeyPosition', label: 'Позиция Турции / Политика', level: 'critical' },
-    { key: 'grammar', label: 'Грамматика и орфография', level: 'warning' },
-    { key: 'style', label: 'Стиль медиаязыка', level: 'info' },
+    { key: 'terminology',    label: 'Терминология',           level: 'critical', badge: 'КРИТИЧНО' },
+    { key: 'turkeyPosition', label: 'Позиция Турции',         level: 'critical', badge: 'КРИТИЧНО' },
+    { key: 'grammar',        label: 'Грамматика и орфография', level: 'warning',  badge: 'ПРЕДУПРЕЖДЕНИЕ' },
+    { key: 'style',          label: 'Стиль медиаязыка',       level: 'info',     badge: 'РЕКОМЕНДАЦИЯ' },
   ];
 
+  const badgeColors = {
+    critical: 'background:rgba(232,0,26,0.15);color:#E8001A;',
+    warning:  'background:rgba(240,176,0,0.15);color:#F0B000;',
+    info:     'background:rgba(58,158,255,0.15);color:#3A9EFF;'
+  };
+
+  let html = '';
+
+  // Verdict banner
+  html += `<div class="verdict ${v.cls}">
+    <div class="verdict-icon">${v.icon}</div>
+    <div>
+      <div class="verdict-label">${v.label}</div>
+      <div class="verdict-desc">${v.desc}</div>
+    </div>
+  </div>`;
+
+  // Corrected text block
+  if (data.correctedText && data.correctedText.trim() !== originalText.trim()) {
+    html += `<div class="corrected-text-block">
+      <div class="corrected-header">
+        <span class="panel-title">Исправленный текст</span>
+        <button class="btn-copy" onclick="doCopy(this)">КОПИРОВАТЬ</button>
+      </div>
+      <div class="corrected-content" style="white-space:pre-wrap;">${escapeHtml(data.correctedText)}</div>
+    </div>`;
+  }
+
+  // Issue groups
   groups.forEach(group => {
     const issues = data.issues?.[group.key];
     if (!issues || issues.length === 0) return;
 
-    const badgeCls = `badge-${group.level}`;
-    const badgeLabel = group.level === 'critical' ? 'КРИТИЧНО' : group.level === 'warning' ? 'ПРЕДУПРЕЖДЕНИЕ' : 'РЕКОМЕНДАЦИЯ';
+    const bColor = badgeColors[group.level];
 
-    // section header
-    const sectionEl = document.createElement('div');
-    sectionEl.style.cssText = 'font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;display:flex;align-items:center;gap:8px;';
-    sectionEl.innerHTML = `<span class="issue-badge ${badgeCls}">${badgeLabel}</span>${group.label}<span style="color:var(--text-faint);margin-left:4px;">${issues.length} ${issues.length===1?'ошибка':'ошибок'}</span>`;
-    area.appendChild(sectionEl);
+    // Group header
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:0.08em;padding:3px 8px;${bColor}">${group.badge}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.06em;">${group.label}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-left:4px;">${issues.length} ошибок</span>
+    </div>`;
 
-    // each issue as its own card
+    // Each issue — simple two-column row, always visible
     issues.forEach((issue, idx) => {
-      const card = document.createElement('div');
-      card.className = 'issue-card';
-      card.style.marginBottom = '8px';
-
-      const header = document.createElement('div');
-      header.className = 'issue-header';
-      header.innerHTML = `
-        <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);min-width:22px;">${idx+1}.</span>
-        <span style="font-size:12px;color:var(--red);font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(issue.found)}</span>
-        <span class="issue-toggle open" style="margin-left:8px;">▶</span>`;
-
-      const body = document.createElement('div');
-      body.className = 'issue-body open';
-      body.innerHTML = `
-        <div class="issue-item">
-          <div>
-            <div class="issue-col-label">Обнаружено</div>
-            <div class="issue-wrong">${escapeHtml(issue.found)}</div>
+      html += `<div style="border:1px solid var(--border);background:var(--dark);margin-bottom:6px;">
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text-faint);">
+          ОШИБКА ${idx + 1}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+          <div style="padding:12px 16px;border-right:1px solid var(--border);">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text-faint);letter-spacing:0.08em;margin-bottom:6px;">ОБНАРУЖЕНО</div>
+            <div style="font-size:13px;color:#E8001A;font-style:italic;line-height:1.5;">${escapeHtml(issue.found)}</div>
           </div>
-          <div>
-            <div class="issue-col-label">Правильно</div>
-            <div class="issue-right">${escapeHtml(issue.correct)}</div>
+          <div style="padding:12px 16px;">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text-faint);letter-spacing:0.08em;margin-bottom:6px;">ПРАВИЛЬНО</div>
+            <div style="font-size:13px;color:#00C97A;line-height:1.5;">${escapeHtml(issue.correct)}</div>
           </div>
-          ${issue.context ? `<div class="issue-context">${escapeHtml(issue.context)}</div>` : ''}
-        </div>`;
-
-      const tog = header.querySelector('.issue-toggle');
-      header.addEventListener('click', () => {
-        body.classList.toggle('open');
-        tog.classList.toggle('open');
-      });
-
-      card.appendChild(header);
-      card.appendChild(body);
-      area.appendChild(card);
+        </div>
+        ${issue.context ? `<div style="padding:8px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim);font-style:italic;max-height:60px;overflow-y:auto;">«${escapeHtml(issue.context)}»</div>` : ''}
+      </div>`;
     });
   });
 
-  // general comment
+  // General comment
   if (data.generalComment) {
-    const commentEl = document.createElement('div');
-    commentEl.style.cssText = 'padding:16px;border:1px solid var(--border);background:var(--dark);';
-    commentEl.innerHTML = `
-      <div class="section-title">Общий комментарий редактора</div>
-      <div style="font-size:13px;color:var(--text-dim);line-height:1.8;">${escapeHtml(data.generalComment)}</div>`;
-    area.appendChild(commentEl);
+    html += `<div style="padding:16px;border:1px solid var(--border);background:var(--dark);">
+      <div class="section-title" style="margin-bottom:8px;">Общий комментарий редактора</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.8;">${escapeHtml(data.generalComment)}</div>
+    </div>`;
   }
 
+  // Inject all at once
+  area.innerHTML = html;
+  area.style.display = 'flex';
+  area.style.flexDirection = 'column';
+  area.style.gap = '12px';
+  area.style.padding = '24px';
+
+  // Wire up copy button
+  const copyBtn = area.querySelector('.btn-copy');
+  if (copyBtn && data.correctedText) {
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(data.correctedText);
+      copyBtn.textContent = 'СКОПИРОВАНО';
+      setTimeout(() => copyBtn.textContent = 'КОПИРОВАТЬ', 2000);
+    });
+  }
 }
 
 function renderError(msg) {
@@ -1293,6 +1272,13 @@ function toggleIssue(id) {
 
 function copyText(encoded) {
   navigator.clipboard.writeText(decodeURIComponent(encoded));
+}
+
+function doCopy(btn) {
+  const text = btn.closest('.corrected-text-block').querySelector('.corrected-content').textContent;
+  navigator.clipboard.writeText(text);
+  btn.textContent = 'СКОПИРОВАНО';
+  setTimeout(() => btn.textContent = 'КОПИРОВАТЬ', 2000);
 }
 
 function escapeHtml(str) {
