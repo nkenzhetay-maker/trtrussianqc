@@ -1103,7 +1103,18 @@ async function analyze() {
     ? document.getElementById('text-input').value.trim()
     : (fileContent || '');
 
-  if (!text) return;
+  if (!text) {
+    if (currentTab === 'file') {
+      alert('Файл ещё не загружен или не удалось прочитать содержимое.');
+    }
+    return;
+  }
+
+  // Netlify function timeout is 10s — warn for very long texts
+  if (text.length > 8000) {
+    const proceed = confirm('Текст очень длинный (' + text.length + ' символов). Рекомендуется проверять частями до 3000 слов. Продолжить?');
+    if (!proceed) return;
+  }
 
   // UI: loading
   document.getElementById('analyze-btn').disabled = true;
@@ -1139,6 +1150,7 @@ async function analyze() {
 function renderResults(data, originalText) {
   const area = document.getElementById('results-area');
   area.innerHTML = '';
+  area.classList.remove('show');
 
   // timestamp
   const now = new Date();
@@ -1153,25 +1165,38 @@ function renderResults(data, originalText) {
   };
 
   const v = verdictMap[data.verdict] || verdictMap.warn;
-  area.innerHTML += `
+
+  // helper: create element from html string
+  function el(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return div.firstElementChild;
+  }
+
+  // verdict
+  area.appendChild(el(`
     <div class="verdict ${v.cls}">
       <div class="verdict-icon">${v.icon}</div>
       <div>
         <div class="verdict-label">${v.label}</div>
         <div class="verdict-desc">${v.desc}</div>
       </div>
-    </div>`;
+    </div>`));
 
   // corrected text
   if (data.correctedText && data.correctedText !== originalText) {
-    area.innerHTML += `
+    const corrBlock = el(`
       <div class="corrected-text-block">
         <div class="corrected-header">
           <span class="panel-title">Исправленный текст</span>
-          <button class="btn-copy" onclick="copyText('${encodeURIComponent(data.correctedText)}')">КОПИРОВАТЬ</button>
+          <button class="btn-copy">КОПИРОВАТЬ</button>
         </div>
         <div class="corrected-content">${escapeHtml(data.correctedText)}</div>
-      </div>`;
+      </div>`);
+    corrBlock.querySelector('.btn-copy').addEventListener('click', () => {
+      navigator.clipboard.writeText(data.correctedText);
+    });
+    area.appendChild(corrBlock);
   }
 
   // issue groups
@@ -1190,47 +1215,59 @@ function renderResults(data, originalText) {
     const badgeLabel = group.level === 'critical' ? 'КРИТИЧНО' : group.level === 'warning' ? 'ПРЕДУПРЕЖДЕНИЕ' : 'РЕКОМЕНДАЦИЯ';
 
     // section header
-    area.innerHTML += `
-      <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
-        color:var(--text-dim);padding:4px 0 8px 0;border-bottom:1px solid var(--border);margin-bottom:4px;">
-        <span class="issue-badge ${badgeCls}" style="margin-right:8px;">${badgeLabel}</span>${group.label}
-        <span style="color:var(--text-faint);margin-left:8px;">${issues.length} ${issues.length===1?'ошибка':'ошибок'}</span>
-      </div>`;
+    const sectionEl = document.createElement('div');
+    sectionEl.style.cssText = 'font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;display:flex;align-items:center;gap:8px;';
+    sectionEl.innerHTML = `<span class="issue-badge ${badgeCls}">${badgeLabel}</span>${group.label}<span style="color:var(--text-faint);margin-left:4px;">${issues.length} ${issues.length===1?'ошибка':'ошибок'}</span>`;
+    area.appendChild(sectionEl);
 
     // each issue as its own card
     issues.forEach((issue, idx) => {
-      const cardId = `issue-${group.key}-${idx}`;
-      area.innerHTML += `
-        <div class="issue-card" style="margin-bottom:8px;">
-          <div class="issue-header" onclick="toggleIssue('${cardId}')" style="cursor:pointer;">
-            <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);min-width:20px;">${idx+1}.</span>
-            <span style="font-size:12px;color:var(--red);font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(issue.found)}</span>
-            <span class="issue-toggle" id="${cardId}-toggle" style="margin-left:8px;">▶</span>
+      const card = document.createElement('div');
+      card.className = 'issue-card';
+      card.style.marginBottom = '8px';
+
+      const header = document.createElement('div');
+      header.className = 'issue-header';
+      header.innerHTML = `
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);min-width:22px;">${idx+1}.</span>
+        <span style="font-size:12px;color:var(--red);font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(issue.found)}</span>
+        <span class="issue-toggle open" style="margin-left:8px;">▶</span>`;
+
+      const body = document.createElement('div');
+      body.className = 'issue-body open';
+      body.innerHTML = `
+        <div class="issue-item">
+          <div>
+            <div class="issue-col-label">Обнаружено</div>
+            <div class="issue-wrong">${escapeHtml(issue.found)}</div>
           </div>
-          <div class="issue-body open" id="${cardId}">
-            <div class="issue-item">
-              <div>
-                <div class="issue-col-label">Обнаружено</div>
-                <div class="issue-wrong">${escapeHtml(issue.found)}</div>
-              </div>
-              <div>
-                <div class="issue-col-label">Правильно</div>
-                <div class="issue-right">${escapeHtml(issue.correct)}</div>
-              </div>
-              ${issue.context ? `<div class="issue-context">«${escapeHtml(issue.context)}»</div>` : ''}
-            </div>
+          <div>
+            <div class="issue-col-label">Правильно</div>
+            <div class="issue-right">${escapeHtml(issue.correct)}</div>
           </div>
+          ${issue.context ? `<div class="issue-context">${escapeHtml(issue.context)}</div>` : ''}
         </div>`;
+
+      const tog = header.querySelector('.issue-toggle');
+      header.addEventListener('click', () => {
+        body.classList.toggle('open');
+        tog.classList.toggle('open');
+      });
+
+      card.appendChild(header);
+      card.appendChild(body);
+      area.appendChild(card);
     });
   });
 
   // general comment
   if (data.generalComment) {
-    area.innerHTML += `
-      <div style="padding: 16px; border: 1px solid var(--border); background: var(--dark);">
-        <div class="section-title">Общий комментарий редактора</div>
-        <div style="font-size: 13px; color: var(--text-dim); line-height: 1.8;">${escapeHtml(data.generalComment)}</div>
-      </div>`;
+    const commentEl = document.createElement('div');
+    commentEl.style.cssText = 'padding:16px;border:1px solid var(--border);background:var(--dark);';
+    commentEl.innerHTML = `
+      <div class="section-title">Общий комментарий редактора</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.8;">${escapeHtml(data.generalComment)}</div>`;
+    area.appendChild(commentEl);
   }
 
   area.classList.add('show');
