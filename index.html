@@ -905,6 +905,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const EMAILJS_PUBLIC_KEY = 'VmCtNOVj83UjISimq';
@@ -1027,19 +1028,36 @@ function handleFileSelect(e) {
   if (file) processFile(file);
 }
 
-function processFile(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const text = e.target.result;
-    fileContent = text;
-    document.getElementById('file-drop-zone').style.display = 'none';
-    const loaded = document.getElementById('file-loaded');
-    loaded.classList.add('show');
-    document.getElementById('file-name').textContent = file.name;
-    document.getElementById('file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
-    document.getElementById('file-preview').textContent = text.substring(0, 800) + (text.length > 800 ? '...' : '');
-  };
-  reader.readAsText(file, 'UTF-8');
+async function processFile(file) {
+  const isDocx = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
+
+  document.getElementById('file-drop-zone').style.display = 'none';
+  const loaded = document.getElementById('file-loaded');
+  loaded.classList.add('show');
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+  document.getElementById('file-preview').textContent = 'Загрузка...';
+
+  if (isDocx) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      const text = result.value;
+      fileContent = text;
+      document.getElementById('file-preview').textContent = text.substring(0, 800) + (text.length > 800 ? '...' : '');
+    } catch (err) {
+      document.getElementById('file-preview').textContent = 'Ошибка чтения файла. Попробуйте сохранить как .txt';
+      fileContent = null;
+    }
+  } else {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const text = e.target.result;
+      fileContent = text;
+      document.getElementById('file-preview').textContent = text.substring(0, 800) + (text.length > 800 ? '...' : '');
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
 }
 
 function clearFile() {
