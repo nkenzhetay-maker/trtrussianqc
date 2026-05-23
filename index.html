@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRT Russian — Система контроля качества</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+  :root {
+    --red: #E8001A;
+    --red-dim: #9A0012;
+    --dark: #0A0A0C;
+    --panel: #111116;
+    --border: #1E1E28;
+    --border-bright: #2E2E3A;
+    --text: #D8D8E8;
+    --text-dim: #6E6E88;
+    --text-faint: #3A3A50;
+    --green: #00C97A;
+    --yellow: #F0B000;
+    --blue: #3A9EFF;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    background: var(--dark);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    background: var(--red);
+    color: white;
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 11px;
+    padding: 4px 8px;
+    letter-spacing: 0.08em;
+  }
+
+  .logo-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .status-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+
+  /* AUTH OVERLAY */
+  #auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--dark);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .auth-box {
+    width: 380px;
+    border: 1px solid var(--border-bright);
+    background: var(--panel);
+    padding: 40px;
+  }
+
+  .auth-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .auth-logo .logo-mark { font-size: 13px; padding: 5px 10px; }
+
+  .auth-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .auth-input-group { margin-bottom: 16px; }
+
+  .auth-input-group label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .auth-input-group input {
+    width: 100%;
+    background: var(--dark);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .auth-input-group input:focus { border-color: var(--red); }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--red);
+    color: white;
+    border: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.2s;
+  }
+
+  .btn-primary:hover { background: #C80016; }
+  .btn-primary:disabled { background: var(--border-bright); cursor: not-allowed; }
+
+  .auth-error {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+    margin-top: 12px;
+    display: none;
+  }
+
+  .auth-note {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  /* MAIN LAYOUT */
+  #app {
+    display: none;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 100%;
+  }
+
+  /* LEFT PANEL — INPUT */
+  .panel-left {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .tab {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+
+  .tab.active {
+    color: var(--text);
+    border-bottom-color: var(--red);
+  }
+
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* INPUT AREA */
+  .input-area {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tab-content { display: none; flex: 1; flex-direction: column; }
+  .tab-content.active { display: flex; }
+
+  textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 24px;
+    resize: none;
+    outline: none;
+  }
+
+  textarea::placeholder { color: var(--text-faint); }
+
+  /* FILE UPLOAD */
+  .file-drop {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 32px;
+    border: none;
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .file-drop:hover { color: var(--text); }
+  .file-drop.drag-over { background: rgba(232,0,26,0.05); }
+
+  .file-drop-icon {
+    font-size: 32px;
+    opacity: 0.4;
+  }
+
+  .file-drop-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  .file-drop-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+
+  #file-input { display: none; }
+
+  .file-loaded {
+    padding: 24px;
+    flex: 1;
+    overflow-y: auto;
+    display: none;
+  }
+
+  .file-loaded.show { display: block; }
+
+  .file-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .file-meta-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .file-meta-size {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .file-meta-clear {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--red);
+    cursor: pointer;
+    background: none;
+    border: none;
+    letter-spacing: 0.06em;
+  }
+
+  .file-preview-text {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    font-family: var(--sans);
+  }
+
+  /* CONTENT TYPE SELECTOR */
+  .content-type-bar {
+    padding: 12px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .type-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .type-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    background: none;
+  }
+
+  .chip.active {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(232,0,26,0.08);
+  }
+
+  .chip:hover:not(.active) { border-color: var(--border-bright); color: var(--text); }
+
+  /* ANALYZE BUTTON */
+  .analyze-bar {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .btn-analyze {
+    width: 100%;
+    background: var(--red);
+    color: white;
+    border: none;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .btn-analyze:hover { background: #C80016; }
+  .btn-analyze:disabled { background: var(--border-bright); cursor: not-allowed; }
+
+  .btn-analyze .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* RIGHT PANEL — RESULTS */
+  .panel-right {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--panel);
+  }
+
+  /* EMPTY STATE */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--text-faint);
+    padding: 40px;
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    opacity: 0.3;
+  }
+
+  .empty-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-align: center;
+    line-height: 1.8;
+    color: var(--text-faint);
+  }
+
+  /* RESULTS AREA */
+  .results-area {
+    flex: 1;
+    overflow-y: auto;
+    display: none;
+    padding: 24px;
+    gap: 16px;
+    flex-direction: column;
+  }
+
+  .results-area.show { display: flex; }
+
+  /* VERDICT BANNER */
+  .verdict {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-left: 3px solid;
+  }
+
+  .verdict.pass { border-color: var(--green); background: rgba(0,201,122,0.05); }
+  .verdict.warn { border-color: var(--yellow); background: rgba(240,176,0,0.05); }
+  .verdict.fail { border-color: var(--red); background: rgba(232,0,26,0.05); }
+
+  .verdict-icon { font-size: 18px; flex-shrink: 0; }
+  .verdict-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .verdict.pass .verdict-label { color: var(--green); }
+  .verdict.warn .verdict-label { color: var(--yellow); }
+  .verdict.fail .verdict-label { color: var(--red); }
+
+  .verdict-desc { font-size: 12px; color: var(--text-dim); }
+
+  /* ISSUE CARDS */
+  .section-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .issue-card {
+    border: 1px solid var(--border);
+    background: var(--dark);
+    overflow: hidden;
+  }
+
+  .issue-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .issue-header:hover { background: rgba(255,255,255,0.02); }
+
+  .issue-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    text-transform: uppercase;
+  }
+
+  .badge-critical { background: rgba(232,0,26,0.15); color: var(--red); }
+  .badge-warning { background: rgba(240,176,0,0.15); color: var(--yellow); }
+  .badge-info { background: rgba(58,158,255,0.15); color: var(--blue); }
+
+  .issue-category {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+
+  .issue-count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+  }
+
+  .issue-toggle {
+    font-size: 10px;
+    color: var(--text-faint);
+    transition: transform 0.2s;
+  }
+
+  .issue-toggle.open { transform: rotate(90deg); }
+
+  .issue-body {
+    display: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .issue-body.open { display: block; }
+
+  .issue-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .issue-item:last-child { border-bottom: none; }
+
+  .issue-col-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 4px;
+  }
+
+  .issue-wrong {
+    font-size: 12px;
+    color: var(--red);
+    font-style: italic;
+  }
+
+  .issue-right {
+    font-size: 12px;
+    color: var(--green);
+  }
+
+  .issue-context {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+    padding-top: 4px;
+  }
+
+  /* CORRECTED TEXT */
+  .corrected-text-block {
+    border: 1px solid var(--border);
+    background: var(--dark);
+  }
+
+  .corrected-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .corrected-content {
+    padding: 20px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+    font-family: var(--sans);
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .corrected-content mark.changed {
+    background: rgba(0,201,122,0.15);
+    color: var(--green);
+    padding: 1px 3px;
+    border-radius: 2px;
+  }
+
+  .corrected-content mark.removed {
+    background: rgba(232,0,26,0.1);
+    color: var(--red);
+    text-decoration: line-through;
+    padding: 1px 3px;
+    border-radius: 2px;
+  }
+
+  .btn-copy {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    background: none;
+    border: 1px solid var(--border-bright);
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-copy:hover { color: var(--text); border-color: var(--text-dim); }
+
+  /* LOADING STATE */
+  .loading-state {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .loading-state.show { display: flex; }
+
+  .loading-bars {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    height: 32px;
+  }
+
+  .loading-bar {
+    width: 4px;
+    background: var(--red);
+    border-radius: 2px;
+    animation: barPulse 1.2s ease-in-out infinite;
+  }
+
+  .loading-bar:nth-child(2) { animation-delay: 0.1s; }
+  .loading-bar:nth-child(3) { animation-delay: 0.2s; }
+  .loading-bar:nth-child(4) { animation-delay: 0.3s; }
+  .loading-bar:nth-child(5) { animation-delay: 0.4s; }
+
+  @keyframes barPulse {
+    0%, 100% { height: 8px; opacity: 0.4; }
+    50% { height: 28px; opacity: 1; }
+  }
+
+  .loading-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-align: center;
+  }
+
+  .loading-step {
+    font-size: 10px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    animation: blink 1.5s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="logo-mark">TRT</div>
+      <span style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); letter-spacing: 0.04em;">RUSSIAN DIGITAL</span>
+    </div>
+    <div class="auth-title">Система контроля качества</div>
+    <div id="auth-step-1">
+      <div class="auth-input-group">
+        <label>Электронная почта</label>
+        <input type="email" id="auth-email" placeholder="user@trt.net.tr" />
+      </div>
+      <button class="btn-primary" onclick="requestOTP()">Получить код</button>
+    </div>
+    <div id="auth-step-2" style="display:none;">
+      <div class="auth-input-group">
+        <label>Код подтверждения</label>
+        <input type="text" id="auth-otp" placeholder="000000" maxlength="6" style="font-size:20px; letter-spacing: 0.3em; text-align:center;" />
+      </div>
+      <button class="btn-primary" onclick="verifyOTP()">Войти</button>
+      <div class="auth-note">Код отправлен на указанный адрес. Срок действия — 10 минут.</div>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">TRT</div>
+    <span class="logo-text">RUSSIAN — КОНТРОЛЬ КАЧЕСТВА</span>
+  </div>
+  <div class="header-right">
+    <div class="status-dot"></div>
+    <span class="status-label">СИСТЕМА АКТИВНА</span>
+    <button onclick="logout()" style="font-family: var(--mono); font-size: 10px; color: var(--text-faint); background: none; border: none; cursor: pointer; letter-spacing: 0.06em; padding: 4px 0;">ВЫХОД</button>
+  </div>
+</header>
+
+<!-- APP -->
+<div id="app">
+  <div class="layout">
+
+    <!-- LEFT: INPUT -->
+    <div class="panel-left">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('text', this)">Текст</button>
+        <button class="tab" onclick="switchTab('file', this)">Файл</button>
+      </div>
+
+      <div class="input-area">
+
+        <!-- TEXT TAB -->
+        <div class="tab-content active" id="tab-text">
+          <textarea id="text-input" placeholder="Вставьте текст для проверки — новость, материал, инфографику или статью на русском языке..."></textarea>
+        </div>
+
+        <!-- FILE TAB -->
+        <div class="tab-content" id="tab-file">
+          <div class="file-drop" id="file-drop-zone" onclick="document.getElementById('file-input').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
+            <div class="file-drop-icon">📄</div>
+            <div class="file-drop-text">НАЖМИТЕ ИЛИ ПЕРЕТАЩИТЕ ФАЙЛ</div>
+            <div class="file-drop-sub">.txt, .docx, .doc</div>
+            <input type="file" id="file-input" accept=".txt,.docx,.doc" onchange="handleFileSelect(event)" />
+          </div>
+          <div class="file-loaded" id="file-loaded">
+            <div class="file-meta">
+              <span class="file-meta-name" id="file-name">—</span>
+              <span class="file-meta-size" id="file-size">—</span>
+              <button class="file-meta-clear" onclick="clearFile()">✕ ОЧИСТИТЬ</button>
+            </div>
+            <div class="file-preview-text" id="file-preview"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CONTENT TYPE -->
+      <div class="content-type-bar">
+        <span class="type-label">Тип:</span>
+        <div class="type-chips">
+          <button class="chip active" data-type="news" onclick="selectType(this)">Новость</button>
+          <button class="chip" data-type="video" onclick="selectType(this)">Видео</button>
+          <button class="chip" data-type="infographic" onclick="selectType(this)">Инфографика</button>
+          <button class="chip" data-type="article" onclick="selectType(this)">Статья</button>
+          <button class="chip" data-type="social" onclick="selectType(this)">Соц. сети</button>
+        </div>
+      </div>
+
+      <!-- ANALYZE -->
+      <div class="analyze-bar">
+        <button class="btn-analyze" id="analyze-btn" onclick="analyze()">
+          <span class="spinner" id="btn-spinner"></span>
+          <span id="btn-text">▶ Проверить качество</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div class="panel-right">
+      <div class="panel-header">
+        <span class="panel-title">Результаты проверки</span>
+        <span id="result-timestamp" style="font-family: var(--mono); font-size: 10px; color: var(--text-faint);"></span>
+      </div>
+
+      <!-- EMPTY STATE -->
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">
+          ВВЕДИТЕ ТЕКСТ И НАЖМИТЕ<br>«ПРОВЕРИТЬ КАЧЕСТВО»
+        </div>
+      </div>
+
+      <!-- LOADING -->
+      <div class="loading-state" id="loading-state">
+        <div class="loading-bars">
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+        </div>
+        <div class="loading-text">АНАЛИЗ ТЕКСТА...</div>
+        <div class="loading-step" id="loading-step">Проверка терминологии</div>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="results-area" id="results-area"></div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const EMAILJS_PUBLIC_KEY = 'VmCtNOVj83UjISimq';
+const EMAILJS_SERVICE_ID = 'service_mdtv5k8';
+const EMAILJS_TEMPLATE_ID = 'template_lavno6l';
+const ALLOWED_EMAILS = ['nkenzhetay@gmail.com']; // add more as needed
+
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+let currentOTP = null;
+let otpExpiry = null;
+let selectedType = 'news';
+let fileContent = null;
+let currentTab = 'text';
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+function checkAuth() {
+  const token = localStorage.getItem('trt_auth');
+  const expiry = localStorage.getItem('trt_auth_expiry');
+  if (token && expiry && Date.now() < parseInt(expiry)) {
+    showApp();
+  }
+}
+
+async function requestOTP() {
+  const email = document.getElementById('auth-email').value.trim().toLowerCase();
+  const err = document.getElementById('auth-error');
+  err.style.display = 'none';
+
+  if (!ALLOWED_EMAILS.includes(email)) {
+    err.textContent = 'Этот адрес не имеет доступа к системе.';
+    err.style.display = 'block';
+    return;
+  }
+
+  currentOTP = Math.floor(100000 + Math.random() * 900000).toString();
+  otpExpiry = Date.now() + 10 * 60 * 1000;
+
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: email,
+      otp_code: currentOTP,
+      message: `Ваш код для входа в систему контроля качества TRT Russian: ${currentOTP}`
+    });
+    document.getElementById('auth-step-1').style.display = 'none';
+    document.getElementById('auth-step-2').style.display = 'block';
+  } catch (e) {
+    err.textContent = 'Ошибка отправки. Попробуйте ещё раз.';
+    err.style.display = 'block';
+  }
+}
+
+function verifyOTP() {
+  const entered = document.getElementById('auth-otp').value.trim();
+  const err = document.getElementById('auth-error');
+  err.style.display = 'none';
+
+  if (Date.now() > otpExpiry) {
+    err.textContent = 'Код устарел. Запросите новый.';
+    err.style.display = 'block';
+    return;
+  }
+
+  if (entered !== currentOTP) {
+    err.textContent = 'Неверный код.';
+    err.style.display = 'block';
+    return;
+  }
+
+  localStorage.setItem('trt_auth', 'authenticated');
+  localStorage.setItem('trt_auth_expiry', Date.now() + 30 * 60 * 1000);
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+function logout() {
+  localStorage.removeItem('trt_auth');
+  localStorage.removeItem('trt_auth_expiry');
+  location.reload();
+}
+
+// ── UI ───────────────────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function selectType(el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  selectedType = el.dataset.type;
+}
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────────
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('file-drop-zone').classList.add('drag-over');
+}
+
+function handleDragLeave() {
+  document.getElementById('file-drop-zone').classList.remove('drag-over');
+}
+
+function handleFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('file-drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    fileContent = text;
+    document.getElementById('file-drop-zone').style.display = 'none';
+    const loaded = document.getElementById('file-loaded');
+    loaded.classList.add('show');
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+    document.getElementById('file-preview').textContent = text.substring(0, 800) + (text.length > 800 ? '...' : '');
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function clearFile() {
+  fileContent = null;
+  document.getElementById('file-drop-zone').style.display = 'flex';
+  document.getElementById('file-loaded').classList.remove('show');
+  document.getElementById('file-input').value = '';
+}
+
+// ── LOADING STEPS ─────────────────────────────────────────────────────────
+const loadingSteps = [
+  'Проверка терминологии...',
+  'Анализ позиции Турции...',
+  'Проверка грамматики...',
+  'Анализ медийного стиля...',
+  'Формирование отчёта...'
+];
+
+let loadingInterval = null;
+
+function startLoading() {
+  let i = 0;
+  document.getElementById('loading-step').textContent = loadingSteps[0];
+  loadingInterval = setInterval(() => {
+    i = (i + 1) % loadingSteps.length;
+    document.getElementById('loading-step').textContent = loadingSteps[i];
+  }, 1800);
+}
+
+function stopLoading() {
+  if (loadingInterval) clearInterval(loadingInterval);
+}
+
+// ── ANALYZE ───────────────────────────────────────────────────────────────
+async function analyze() {
+  const text = currentTab === 'text'
+    ? document.getElementById('text-input').value.trim()
+    : (fileContent || '');
+
+  if (!text) return;
+
+  // UI: loading
+  document.getElementById('analyze-btn').disabled = true;
+  document.getElementById('btn-spinner').style.display = 'block';
+  document.getElementById('btn-text').textContent = 'Анализ...';
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results-area').classList.remove('show');
+  document.getElementById('loading-state').classList.add('show');
+  startLoading();
+
+  try {
+    const response = await fetch('/api/quality-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, contentType: selectedType })
+    });
+
+    if (!response.ok) throw new Error('API error');
+    const data = await response.json();
+    renderResults(data, text);
+  } catch (err) {
+    renderError(err.message);
+  } finally {
+    stopLoading();
+    document.getElementById('loading-state').classList.remove('show');
+    document.getElementById('analyze-btn').disabled = false;
+    document.getElementById('btn-spinner').style.display = 'none';
+    document.getElementById('btn-text').textContent = '▶ Проверить качество';
+  }
+}
+
+// ── RENDER RESULTS ────────────────────────────────────────────────────────
+function renderResults(data, originalText) {
+  const area = document.getElementById('results-area');
+  area.innerHTML = '';
+
+  // timestamp
+  const now = new Date();
+  document.getElementById('result-timestamp').textContent =
+    now.toLocaleDateString('ru-RU') + ' ' + now.toTimeString().slice(0,5);
+
+  // verdict
+  const verdictMap = {
+    pass: { cls: 'pass', icon: '✓', label: 'ОДОБРЕНО', desc: 'Материал соответствует стандартам TRT Russian.' },
+    warn: { cls: 'warn', icon: '⚠', label: 'ТРЕБУЕТ ПРАВОК', desc: 'Обнаружены ошибки. Необходима корректура перед публикацией.' },
+    fail: { cls: 'fail', icon: '✕', label: 'НЕ ОДОБРЕНО', desc: 'Критические нарушения. Материал не может быть опубликован.' }
+  };
+
+  const v = verdictMap[data.verdict] || verdictMap.warn;
+  area.innerHTML += `
+    <div class="verdict ${v.cls}">
+      <div class="verdict-icon">${v.icon}</div>
+      <div>
+        <div class="verdict-label">${v.label}</div>
+        <div class="verdict-desc">${v.desc}</div>
+      </div>
+    </div>`;
+
+  // corrected text
+  if (data.correctedText && data.correctedText !== originalText) {
+    area.innerHTML += `
+      <div class="corrected-text-block">
+        <div class="corrected-header">
+          <span class="panel-title">Исправленный текст</span>
+          <button class="btn-copy" onclick="copyText('${encodeURIComponent(data.correctedText)}')">КОПИРОВАТЬ</button>
+        </div>
+        <div class="corrected-content">${escapeHtml(data.correctedText)}</div>
+      </div>`;
+  }
+
+  // issue groups
+  const groups = [
+    { key: 'terminology', label: 'Терминология', level: 'critical' },
+    { key: 'turkeyPosition', label: 'Позиция Турции / Политика', level: 'critical' },
+    { key: 'grammar', label: 'Грамматика и орфография', level: 'warning' },
+    { key: 'style', label: 'Стиль медиаязыка', level: 'info' },
+  ];
+
+  groups.forEach(group => {
+    const issues = data.issues?.[group.key];
+    if (!issues || issues.length === 0) return;
+
+    const badgeCls = `badge-${group.level}`;
+    const badgeLabel = group.level === 'critical' ? 'КРИТИЧНО' : group.level === 'warning' ? 'ПРЕДУПРЕЖДЕНИЕ' : 'РЕКОМЕНДАЦИЯ';
+    const id = 'issue-' + group.key;
+
+    area.innerHTML += `
+      <div class="issue-card">
+        <div class="issue-header" onclick="toggleIssue('${id}')">
+          <span class="issue-badge ${badgeCls}">${badgeLabel}</span>
+          <span class="issue-category">${group.label}</span>
+          <span class="issue-count">${issues.length} ошибок</span>
+          <span class="issue-toggle" id="${id}-toggle">▶</span>
+        </div>
+        <div class="issue-body open" id="${id}">
+          ${issues.map(issue => `
+            <div class="issue-item">
+              <div>
+                <div class="issue-col-label">Обнаружено</div>
+                <div class="issue-wrong">${escapeHtml(issue.found)}</div>
+              </div>
+              <div>
+                <div class="issue-col-label">Правильно</div>
+                <div class="issue-right">${escapeHtml(issue.correct)}</div>
+              </div>
+              ${issue.context ? `<div class="issue-context">«${escapeHtml(issue.context)}»</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  });
+
+  // general comment
+  if (data.generalComment) {
+    area.innerHTML += `
+      <div style="padding: 16px; border: 1px solid var(--border); background: var(--dark);">
+        <div class="section-title">Общий комментарий редактора</div>
+        <div style="font-size: 13px; color: var(--text-dim); line-height: 1.8;">${escapeHtml(data.generalComment)}</div>
+      </div>`;
+  }
+
+  area.classList.add('show');
+}
+
+function renderError(msg) {
+  const area = document.getElementById('results-area');
+  area.innerHTML = `<div class="verdict fail"><div class="verdict-icon">✕</div><div><div class="verdict-label">ОШИБКА СИСТЕМЫ</div><div class="verdict-desc">${escapeHtml(msg)}</div></div></div>`;
+  area.classList.add('show');
+}
+
+function toggleIssue(id) {
+  const body = document.getElementById(id);
+  const toggle = document.getElementById(id + '-toggle');
+  body.classList.toggle('open');
+  toggle.classList.toggle('open');
+}
+
+function copyText(encoded) {
+  navigator.clipboard.writeText(decodeURIComponent(encoded));
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// init
+checkAuth();
+</script>
+</body>
+</html>
