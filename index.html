@@ -643,7 +643,13 @@
     font-size: 11px;
     color: var(--text-dim);
     font-style: italic;
-    padding-top: 4px;
+    padding: 8px 10px;
+    margin-top: 4px;
+    background: rgba(255,255,255,0.02);
+    border-left: 2px solid var(--border-bright);
+    max-height: 80px;
+    overflow-y: auto;
+    line-height: 1.6;
   }
 
   /* CORRECTED TEXT */
@@ -1182,18 +1188,26 @@ function renderResults(data, originalText) {
 
     const badgeCls = `badge-${group.level}`;
     const badgeLabel = group.level === 'critical' ? 'КРИТИЧНО' : group.level === 'warning' ? 'ПРЕДУПРЕЖДЕНИЕ' : 'РЕКОМЕНДАЦИЯ';
-    const id = 'issue-' + group.key;
 
+    // section header
     area.innerHTML += `
-      <div class="issue-card">
-        <div class="issue-header" onclick="toggleIssue('${id}')">
-          <span class="issue-badge ${badgeCls}">${badgeLabel}</span>
-          <span class="issue-category">${group.label}</span>
-          <span class="issue-count">${issues.length} ошибок</span>
-          <span class="issue-toggle" id="${id}-toggle">▶</span>
-        </div>
-        <div class="issue-body" id="${id}">
-          ${issues.map(issue => `
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;
+        color:var(--text-dim);padding:4px 0 8px 0;border-bottom:1px solid var(--border);margin-bottom:4px;">
+        <span class="issue-badge ${badgeCls}" style="margin-right:8px;">${badgeLabel}</span>${group.label}
+        <span style="color:var(--text-faint);margin-left:8px;">${issues.length} ${issues.length===1?'ошибка':'ошибок'}</span>
+      </div>`;
+
+    // each issue as its own card
+    issues.forEach((issue, idx) => {
+      const cardId = `issue-${group.key}-${idx}`;
+      area.innerHTML += `
+        <div class="issue-card" style="margin-bottom:8px;">
+          <div class="issue-header" onclick="toggleIssue('${cardId}')" style="cursor:pointer;">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);min-width:20px;">${idx+1}.</span>
+            <span style="font-size:12px;color:var(--red);font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(issue.found)}</span>
+            <span class="issue-toggle" id="${cardId}-toggle" style="margin-left:8px;">▶</span>
+          </div>
+          <div class="issue-body" id="${cardId}">
             <div class="issue-item">
               <div>
                 <div class="issue-col-label">Обнаружено</div>
@@ -1205,9 +1219,9 @@ function renderResults(data, originalText) {
               </div>
               ${issue.context ? `<div class="issue-context">«${escapeHtml(issue.context)}»</div>` : ''}
             </div>
-          `).join('')}
-        </div>
-      </div>`;
+          </div>
+        </div>`;
+    });
   });
 
   // general comment
