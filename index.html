@@ -600,11 +600,13 @@
   .issue-toggle.open { transform: rotate(90deg); }
 
   .issue-body {
-    display: none;
+    display: block;
     border-top: 1px solid var(--border);
+    max-height: 600px;
+    overflow-y: auto;
   }
 
-  .issue-body.open { display: block; }
+  .issue-body.closed { display: none; }
 
   .issue-item {
     padding: 12px 16px;
@@ -1172,7 +1174,7 @@ function renderResults(data, originalText) {
           <span class="issue-count">${issues.length} ошибок</span>
           <span class="issue-toggle" id="${id}-toggle">▶</span>
         </div>
-        <div class="issue-body open" id="${id}">
+        <div class="issue-body" id="${id}">
           ${issues.map(issue => `
             <div class="issue-item">
               <div>
@@ -1211,7 +1213,7 @@ function renderError(msg) {
 function toggleIssue(id) {
   const body = document.getElementById(id);
   const toggle = document.getElementById(id + '-toggle');
-  body.classList.toggle('open');
+  body.classList.toggle('closed');
   toggle.classList.toggle('open');
 }
 
