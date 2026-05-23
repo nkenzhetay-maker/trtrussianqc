@@ -435,6 +435,9 @@ exports.handler = async function(event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Текст слишком короткий' }) };
   }
 
+  // Truncate to prevent timeout — ~6000 chars is safe for Haiku within 10s
+  const safeText = text.length > 6000 ? text.substring(0, 6000) + '\n\n[Текст обрезан для обработки]' : text;
+
   const typeLabels = {
     news: 'новость', video: 'видеоматериал',
     infographic: 'инфографика', article: 'статья', social: 'пост для соцсетей'
@@ -454,7 +457,7 @@ exports.handler = async function(event) {
         system: SYSTEM_PROMPT,
         messages: [{
           role: 'user',
-          content: `Проверь следующий материал TRT Russian (тип: ${typeLabels[contentType] || 'материал'}):\n\n${text}`
+          content: `Проверь следующий материал TRT Russian (тип: ${typeLabels[contentType] || 'материал'}):\n\n${safeText}`
         }]
       })
     });
@@ -487,7 +490,10 @@ exports.handler = async function(event) {
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
       body: JSON.stringify(result)
     };
 
