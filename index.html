@@ -1184,16 +1184,19 @@ function renderResults(data, originalText) {
     </div>
   </div>`;
 
-  // Corrected text block
-  if (data.correctedText && data.correctedText.trim() !== originalText.trim()) {
-    html += `<div class="corrected-text-block">
-      <div class="corrected-header">
-        <span class="panel-title">Исправленный текст</span>
-        <button class="btn-copy" onclick="doCopy(this)">КОПИРОВАТЬ</button>
-      </div>
-      <div class="corrected-content" style="white-space:pre-wrap;">${escapeHtml(data.correctedText)}</div>
-    </div>`;
-  }
+  // Corrected text block — always show
+  const displayText = (data.correctedText && data.correctedText.trim()) ? data.correctedText : originalText;
+  const isChanged = data.correctedText && data.correctedText.trim() && data.correctedText.trim() !== originalText.trim();
+  const textLabel = isChanged ? 'Исправленный текст' : 'Текст соответствует стандартам';
+  const textNote = isChanged ? '' : '<span style="font-family:var(--mono);font-size:9px;color:var(--green);letter-spacing:0.06em;margin-left:8px;">БЕЗ ИЗМЕНЕНИЙ</span>';
+
+  html += `<div class="corrected-text-block">
+    <div class="corrected-header">
+      <span class="panel-title">${textLabel}${textNote}</span>
+      <button class="btn-copy" onclick="doCopy(this)">КОПИРОВАТЬ</button>
+    </div>
+    <div class="corrected-content" style="white-space:pre-wrap;">${escapeHtml(displayText)}</div>
+  </div>`;
 
   // Issue groups
   groups.forEach(group => {
@@ -1271,11 +1274,12 @@ function renderResults(data, originalText) {
   area.style.gap = '12px';
   area.style.padding = '24px';
 
-  // Wire up copy button
+  // Wire up copy button — uses displayed text (corrected or original)
   const copyBtn = area.querySelector('.btn-copy');
-  if (copyBtn && data.correctedText) {
+  if (copyBtn) {
     copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(data.correctedText);
+      const textToCopy = area.querySelector('.corrected-content')?.textContent || '';
+      navigator.clipboard.writeText(textToCopy);
       copyBtn.textContent = 'СКОПИРОВАНО';
       setTimeout(() => copyBtn.textContent = 'КОПИРОВАТЬ', 2000);
     });
