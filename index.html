@@ -1241,29 +1241,29 @@ function renderResults(data, originalText) {
     </div>`;
   }
 
-  // Headlines table
+  // Headlines panel — same card style as error cards
   if (data.headlines && data.headlines.length > 0) {
-    const rows = data.headlines.map((h, i) => `
-      <tr>
-        <td style="padding:10px 14px;font-family:var(--mono);font-size:10px;color:var(--text-faint);border-bottom:1px solid var(--border);width:32px;">${i + 1}</td>
-        <td style="padding:10px 14px;font-size:14px;color:var(--text);font-weight:600;border-bottom:1px solid var(--border);letter-spacing:0.01em;">${escapeHtml(h)}</td>
-        <td style="padding:10px 14px;border-bottom:1px solid var(--border);text-align:right;">
+    const headlineItems = data.headlines.map((h, i) => `
+      <div style="border:1px solid var(--border);background:var(--dark);margin-bottom:6px;">
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text-faint);">
+          ВАРИАНТ ${i + 1}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:14px 16px;">
+          <div style="font-size:15px;color:var(--text);font-weight:600;letter-spacing:0.01em;line-height:1.4;">${escapeHtml(h)}</div>
           <button onclick="copyHeadline(this)" data-text="${escapeHtml(h)}"
-            style="font-family:var(--mono);font-size:9px;letter-spacing:0.06em;color:var(--text-faint);background:none;border:1px solid var(--border-bright);padding:3px 8px;cursor:pointer;">
+            style="font-family:var(--mono);font-size:9px;letter-spacing:0.06em;color:var(--text-faint);background:none;border:1px solid var(--border-bright);padding:5px 12px;cursor:pointer;white-space:nowrap;transition:all 0.15s;">
             КОПИРОВАТЬ
           </button>
-        </td>
-      </tr>`).join('');
+        </div>
+      </div>`).join('');
 
     html += `
-      <div style="border:1px solid var(--border);background:var(--dark);overflow:hidden;">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
-          <span style="background:rgba(58,158,255,0.15);color:#3A9EFF;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:0.08em;padding:3px 8px;">ЗАГОЛОВКИ</span>
+      <div style="margin-top:4px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;">
+          <span style="background:rgba(58,158,255,0.15);color:#3A9EFF;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:0.08em;padding:3px 8px;">ПРЕДЛОЖЕНИЯ ЗАГОЛОВКОВ</span>
           <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.06em;">5 вариантов — макс. 5 слов</span>
         </div>
-        <table style="width:100%;border-collapse:collapse;">
-          ${rows}
-        </table>
+        ${headlineItems}
       </div>`;
   }
 
